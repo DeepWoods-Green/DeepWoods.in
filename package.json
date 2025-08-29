@@ -4,8 +4,7 @@
   "type": "module",
   "main": "index.js",
   "scripts": {
-    "start": "node index.js",
-    "ingest": "node ingest.js"
+    "start": "node index.js"
   },
   "dependencies": {
     "express": "^4.18.2",
@@ -18,7 +17,8 @@
     "cors": "^2.8.5",
     "axios": "^1.7.2",
     "@supabase/supabase-js": "^2.44.4",
-    "uuid": "^10.0.0"
+    "uuid": "^10.0.0",
+    "@langchain/community": "^0.0.59"
   },
   "engines": {
     "node": "20.x"
