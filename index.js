@@ -5,7 +5,8 @@ import { RetrievalQAChain } from "langchain/chains";
 import { RecursiveCharacterTextSplitter } from "langchain/text_splitter";
 import { GoogleGenerativeAIEmbeddings } from "@langchain/google-genai";
 import { MemoryVectorStore } from "langchain/vectorstores/memory";
-import { getDocument } from 'pdfjs-dist/legacy/build/pdf.js'; 
+import pkg from 'pdfjs-dist/legacy/build/pdf.js'; // <-- Corrected
+const { getDocument } = pkg; // <-- Corrected
 
 const app = express();
 const port = process.env.PORT || 3000;
@@ -59,7 +60,7 @@ app.post('/api/chat', async (req, res) => {
         });
 
         const prompt = PromptTemplate.fromTemplate(
-            "You are an AI assistant that provides accurate information from the following context. If the answer is not in the context, say 'I cannot answer that question based on the provided documents.' Do not make up an answer. Context: {context}\\n\\nQuestion: {question}"
+            "You are an AI assistant that provides accurate information from the following context. If the answer is not in the context, say 'I cannot answer that question based on the provided documents.' Do not make up an answer. Context: {context}\n\nQuestion: {question}"
         );
 
         const chain = RetrievalQAChain.fromLLM(model, vectorStore.asRetriever(), {
