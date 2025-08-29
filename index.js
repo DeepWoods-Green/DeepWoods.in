@@ -5,13 +5,18 @@ import { RetrievalQAChain } from "langchain/chains";
 import { RecursiveCharacterTextSplitter } from "langchain/text_splitter";
 import { GoogleGenerativeAIEmbeddings } from "@langchain/google-genai";
 import { MemoryVectorStore } from "langchain/vectorstores/memory";
-import * as PDFJS from 'pdfjs-dist/legacy/build/pdf.js'; // <-- This is the corrected line
+const PDFJS = require('pdfjs-dist/legacy/build/pdf.js'); // <-- This is the corrected line
 
 const app = express();
 const port = process.env.PORT || 3000;
 app.use(express.json());
 
 const GOOGLE_API_KEY = process.env.GOOGLE_API_KEY;
+
+// New welcome route to handle browser requests
+app.get('/', (req, res) => {
+    res.send('Welcome to the Deepwoods Chatbot API!');
+});
 
 // Your API endpoint for the chatbot
 app.post('/api/chat', async (req, res) => {
