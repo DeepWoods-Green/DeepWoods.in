@@ -5,12 +5,14 @@ import { RetrievalQAChain } from "langchain/chains";
 import { RecursiveCharacterTextSplitter } from "langchain/text_splitter";
 import { GoogleGenerativeAIEmbeddings } from "@langchain/google-genai";
 import { MemoryVectorStore } from "langchain/vectorstores/memory";
-import pkg from 'pdfjs-dist/legacy/build/pdf.js'; // <-- Corrected
-const { getDocument } = pkg; // <-- Corrected
+import pkg from 'pdfjs-dist/legacy/build/pdf.js';
+import cors from 'cors'; 
+const { getDocument } = pkg;
 
 const app = express();
 const port = process.env.PORT || 3000;
 app.use(express.json());
+app.use(cors()); 
 
 const GOOGLE_API_KEY = process.env.GOOGLE_API_KEY;
 
