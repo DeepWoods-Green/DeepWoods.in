@@ -5,7 +5,7 @@ import { RetrievalQAChain } from "langchain/chains";
 import { RecursiveCharacterTextSplitter } from "langchain/text_splitter";
 import { GoogleGenerativeAIEmbeddings } from "@langchain/google-genai";
 import { MemoryVectorStore } from "langchain/vectorstores/memory";
-const PDFJS = require('pdfjs-dist/legacy/build/pdf.js'); // <-- This is the corrected line
+import { getDocument } from 'pdfjs-dist/legacy/build/pdf.js'; 
 
 const app = express();
 const port = process.env.PORT || 3000;
@@ -33,7 +33,7 @@ app.post('/api/chat', async (req, res) => {
         const pdfData = new Uint8Array(arrayBuffer);
 
         // Parse the PDF text using pdfjs-dist
-        const pdfDocument = await PDFJS.getDocument({ data: pdfData }).promise;
+        const pdfDocument = await getDocument({ data: pdfData }).promise;
         let rawText = '';
         for (let i = 1; i <= pdfDocument.numPages; i++) {
             const page = await pdfDocument.getPage(i);
