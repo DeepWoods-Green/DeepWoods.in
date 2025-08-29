@@ -5,7 +5,7 @@ import { RetrievalQAChain } from "langchain/chains";
 import { RecursiveCharacterTextSplitter } from "langchain/text_splitter";
 import { GoogleGenerativeAIEmbeddings } from "@langchain/google-genai";
 import { MemoryVectorStore } from "langchain/vectorstores/memory";
-import * as PDFJS from 'pdfjs-dist/build/pdf.node.mjs';
+import * as PDFJS from 'pdfjs-dist/legacy/build/pdf.js'; // <-- This is the corrected line
 
 const app = express();
 const port = process.env.PORT || 3000;
