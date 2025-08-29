@@ -1,189 +1,112 @@
-import express from 'express';
-import { ChatGoogleGenerativeAI } from "@langchain/google-genai";
-import { ChatPromptTemplate } from "@langchain/core/prompts";
-import { GoogleGenerativeAIEmbeddings } from "@langchain/google-genai";
+import express from "express";
+import bodyParser from "body-parser";
+import dotenv from "dotenv";
+import { OpenAIEmbeddings } from "langchain/embeddings/openai";
+import { ChatOpenAI } from "langchain/chat_models/openai";
 import { createClient } from "@supabase/supabase-js";
-import { SupabaseVectorStore } from "@langchain/community/vectorstores/supabase";
-import { createStuffDocumentsChain } from "langchain/chains/combine_documents";
-import { createRetrievalChain } from "langchain/chains/retrieval";
-import { BufferMemory } from "langchain/memory";
-import cors from 'cors';
-import axios from 'axios';
-import dotenv from 'dotenv';
+
 dotenv.config();
 
 const app = express();
-const port = process.env.PORT || 3000;
+app.use(bodyParser.json());
 
-// ✅ Allowed origins (your frontend + local dev)
-const allowedOrigins = [
-  "https://orange-dotterel-510746.hostingersite.com",
-  "http://localhost:3000"
-];
+// Init OpenAI + Supabase
+const llm = new ChatOpenAI({
+  temperature: 0,
+  modelName: "gpt-4o-mini",
+  openAIApiKey: process.env.OPENAI_API_KEY,
+});
 
-// ✅ Setup CORS properly
-app.use(
-  cors({
-    origin: function (origin, callback) {
-      if (!origin || allowedOrigins.includes(origin)) {
-        callback(null, true);
-      } else {
-        callback(new Error("Not allowed by CORS"));
-      }
-    },
-    methods: ["GET", "POST", "OPTIONS"],
-    allowedHeaders: ["Content-Type", "Authorization"],
-    credentials: true,
-  })
+const embeddings = new OpenAIEmbeddings({
+  openAIApiKey: process.env.OPENAI_API_KEY,
+});
+
+const supabase = createClient(
+  process.env.SUPABASE_URL,
+  process.env.SUPABASE_ANON_KEY
 );
 
-// ✅ Parse JSON
-app.use(express.json());
+// --- Vector Search ---
+async function searchDocuments(queryEmbedding, matchCount = 5, filter = {}) {
+  const { data, error } = await supabase.rpc("match_documents", {
+    query_embedding: queryEmbedding,
+    match_count: matchCount,
+    filter: filter,
+  });
 
-// ✅ Handle preflight
-app.options("*", cors());
+  if (error) {
+    console.error("Error searching documents:", error);
+    return [];
+  }
 
-// ---- Global constants ----
-const GOOGLE_API_KEY = process.env.GOOGLE_API_KEY;
-const GOOGLE_SEARCH_API_KEY = process.env.GOOGLE_SEARCH_API_KEY;
-const GOOGLE_SEARCH_ENGINE_ID = process.env.GOOGLE_SEARCH_ENGINE_ID;
-const SUPABASE_URL = process.env.SUPABASE_URL;
-const SUPABASE_ANON_KEY = process.env.SUPABASE_ANON_KEY;
+  return data || [];
+}
 
-// ---- In-memory chat history ----
-const memory = new BufferMemory({
-  memoryKey: "chat_history",
-  inputKey: "question",
-  outputKey: "answer",
-  returnMessages: true
-});
+// --- Helper: Build context from docs ---
+function buildContext(docs) {
+  if (!docs || docs.length === 0) {
+    return "No relevant context found.";
+  }
 
-// ---- Routes ----
-app.get('/', (req, res) => {
-  res.send('✅ Deepwoods AI Assistant is running!');
-});
+  return docs
+    .map(
+      (d, i) =>
+        `Document ${i + 1}:\n${d.content || ""}\n(Source: ${
+          d.metadata?.source || "unknown"
+        })`
+    )
+    .join("\n\n");
+}
 
-app.post('/api/chat', async (req, res) => {
+// --- Chat Endpoint ---
+app.post("/chat", async (req, res) => {
   try {
-    const { question, pdfUrl } = req.body;
-    if (!question) {
-      return res.status(400).json({ error: "Missing question" });
+    const { message } = req.body;
+
+    if (!message) {
+      return res.status(400).json({ error: "Message is required" });
     }
 
-    const model = new ChatGoogleGenerativeAI({
-      model: "gemini-1.5-flash-latest",
-      apiKey: GOOGLE_API_KEY,
+    // Step 1: Embed query
+    const embedding = await embeddings.embedQuery(message);
+
+    // Step 2: Search Supabase
+    const results = await searchDocuments(embedding, 5, {});
+
+    // Step 3: Build context
+    const context = buildContext(results);
+
+    // Step 4: Send to LLM
+    const response = await llm.call([
+      {
+        role: "system",
+        content: `You are an assistant with access to a knowledge base. Use the provided context to answer queries.
+If context is missing, say you don't know instead of making up answers.`,
+      },
+      {
+        role: "user",
+        content: `Context:\n${context}\n\nQuestion: ${message}`,
+      },
+    ]);
+
+    // Step 5: Return
+    res.json({
+      answer: response?.text || "No answer",
+      sources: results.map((r) => r.metadata?.source || "unknown"),
     });
-
-    if (pdfUrl && pdfUrl !== 'general_discussion') {
-      // ---- Supabase setup ----
-      const supabase = createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
-      const embeddings = new GoogleGenerativeAIEmbeddings({
-        modelName: "embedding-001",
-        apiKey: GOOGLE_API_KEY,
-      });
-
-      const vectorStore = new SupabaseVectorStore(embeddings, {
-        client: supabase,
-        tableName: 'documents',
-        queryName: 'match_documents',
-      });
-
-      const retriever = vectorStore.asRetriever();
-      const retrievedDocs = await retriever.getRelevantDocuments(question);
-
-      if (retrievedDocs && retrievedDocs.length > 0) {
-        // ✅ Prompt with history + context
-        const prompt = ChatPromptTemplate.fromMessages([
-          ["system", "Answer the user's question using the context and history."],
-          ["system", "<chat_history>{chat_history}</chat_history>"],
-          ["system", "<context>{context}</context>"],
-          ["human", "{input}"]
-        ]);
-
-        const documentChain = await createStuffDocumentsChain({
-          llm: model,
-          prompt: prompt
-        });
-
-        const retrievalChain = await createRetrievalChain({
-          retriever,
-          combineDocsChain: documentChain,
-        });
-
-        const result = await retrievalChain.invoke({
-          input: question,
-          chat_history: await memory.loadMemoryVariables({})
-        });
-
-        await memory.saveContext({ question }, { answer: result.answer });
-        return res.status(200).json({ answer: result.answer });
-      } else {
-        // ---- Google search fallback ----
-        const searchUrl = `https://www.googleapis.com/customsearch/v1?key=${GOOGLE_SEARCH_API_KEY}&cx=${GOOGLE_SEARCH_ENGINE_ID}&q=${encodeURIComponent(question)}`;
-        const searchResponse = await axios.get(searchUrl);
-        const searchResults = searchResponse.data.items || [];
-
-        let searchContext = '';
-        searchResults.forEach(item => {
-          searchContext += `Title: ${item.title}\nLink: ${item.link}\nSnippet: ${item.snippet}\n\n`;
-        });
-
-        if (searchContext) {
-          const prompt = ChatPromptTemplate.fromMessages([
-            ["system", "You are an AI assistant that answers using search results."],
-            ["system", "{context}"],
-            ["human", "{question}"]
-          ]);
-
-          const chain = prompt.pipe(model);
-          const result = await chain.invoke({
-            context: searchContext,
-            question
-          });
-
-          const warning = "⚠️ Note: No relevant docs found, so I searched the web.";
-          return res.status(200).json({ answer: `${warning}\n\n${result.content}` });
-        } else {
-          return res.status(200).json({ answer: "I could not find a relevant answer in your documents or on the internet." });
-        }
-      }
-    } else {
-      // ---- General discussion mode ----
-      const searchUrl = `https://www.googleapis.com/customsearch/v1?key=${GOOGLE_SEARCH_API_KEY}&cx=${GOOGLE_SEARCH_ENGINE_ID}&q=${encodeURIComponent(question)}`;
-      const searchResponse = await axios.get(searchUrl);
-      const searchResults = searchResponse.data.items || [];
-
-      let searchContext = '';
-      searchResults.forEach(item => {
-        searchContext += `Title: ${item.title}\nLink: ${item.link}\nSnippet: ${item.snippet}\n\n`;
-      });
-
-      if (searchContext) {
-        const prompt = ChatPromptTemplate.fromMessages([
-          ["system", "You are an AI assistant that answers using search results."],
-          ["system", "{context}"],
-          ["human", "{question}"]
-        ]);
-
-        const chain = prompt.pipe(model);
-        const result = await chain.invoke({
-          context: searchContext,
-          question
-        });
-
-        return res.status(200).json({ answer: result.content });
-      } else {
-        return res.status(200).json({ answer: "I could not find a relevant answer on the internet." });
-      }
-    }
   } catch (error) {
-    console.error("❌ Error in handler:", error);
-    res.status(500).json({ error: "An error occurred." });
+    console.error("Chat error:", error);
+    res.status(500).json({ error: "Internal server error" });
   }
 });
 
-// ---- Start server ----
-app.listen(port, () => {
-  console.log(`🚀 Server listening on port ${port}`);
+// --- Healthcheck ---
+app.get("/", (req, res) => {
+  res.send("RAG chatbot server running ✅");
+});
+
+// --- Start Server ---
+const PORT = process.env.PORT || 3000;
+app.listen(PORT, () => {
+  console.log(`🚀 Server running on http://localhost:${PORT}`);
 });
