@@ -2,5 +2,5 @@ services:
   - type: web
     name: deepwoods-chatbot
     env: node
-    buildCommand: npm install --legacy-peer-deps
+    buildCommand: npm install
     startCommand: npm start
