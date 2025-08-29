@@ -54,7 +54,7 @@ app.post('/api/chat', async (req, res) => {
         });
 
         const prompt = PromptTemplate.fromTemplate(
-            "You are an AI assistant that provides accurate information from the following context. If the answer is not in the context, say 'I cannot answer that question based on the provided documents.' Do not make up an answer. Context: {context}\n\nQuestion: {question}"
+            "You are an AI assistant that provides accurate information from the following context. If the answer is not in the context, say 'I cannot answer that question based on the provided documents.' Do not make up an answer. Context: {context}\\n\\nQuestion: {question}"
         );
 
         const chain = RetrievalQAChain.fromLLM(model, vectorStore.asRetriever(), {

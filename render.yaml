@@ -3,4 +3,4 @@ services:
     name: deepwoods-chatbot
     env: node
     buildCommand: npm install
-    startCommand: bash ./run.sh
+    startCommand: npm run start
