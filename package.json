@@ -14,11 +14,7 @@
     "langchain": "^0.3.31",
     "@langchain/core": "^0.3.36",
     "@langchain/google-genai": "^0.1.12",
-    "cors": "^2.8.5",
-    "axios": "^1.7.2",
-    "@supabase/supabase-js": "^2.44.4",
-    "uuid": "^10.0.0",
-    "@langchain/community": "^0.0.57"
+    "cors": "^2.8.5"
   },
   "engines": {
     "node": "20.x"
