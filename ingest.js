@@ -16,10 +16,6 @@ const pdfUrls = [
     "https://greenpositive.org/wp-content/uploads/2025/08/Featherlite-Furniture-FL-GHG-Emissions-Report-FY25-V.2.0.pdf",
     "https://greenpositive.org/wp-content/uploads/2025/08/Featherlite-GHG-Emissions-Inventory-Report-2024-Final-Version.pdf",
     "https://greenpositive.org/wp-content/uploads/2025/08/Featherlite_FL_GHG-Emissions-Report-_FY23-Final-Version.pdf",
-    "https://greenpositive.org/wp-content/uploads/2025/08/Featherlite-Sustainability-Report-2025.pdf",
-    // This PDF appears to be corrupt, so we've commented it out.
-    // "https://greenpositive.org/wp-content/uploads/2025/08/Featherlite-Sustainability-PPT_August-2025_Ver-2.pdf",
-    "https://greenpositive.org/wp-content/uploads/2025/08/Featherlite-SDGs-Alignment-Sustainability-Report-FY25.pdf",
     "https://greenpositive.org/wp-content/uploads/2025/08/Sustainability-Communication-Deepwoods-Green-Profile-2025.pdf",
     "https://greenpositive.org/wp-content/uploads/2025/08/Deepwoods-Green-Service-Ppt-August-2025_Ver-2.pdf"
 ];
@@ -46,8 +42,8 @@ async function ingestDocuments() {
                 rawText += content.items.map(item => item.str).join(' ') + ' ';
             }
             
-            // Clean the text to remove null characters that cause the database error
-            const cleanText = rawText.replace(/\\u0000/g, '');
+            // Corrected text cleaning to remove all problematic Unicode characters
+            const cleanText = rawText.replace(/[\u0000-\u001F\u007F-\u009F]/g, '');
 
             const textSplitter = new RecursiveCharacterTextSplitter({
                 chunkSize: 1000,
