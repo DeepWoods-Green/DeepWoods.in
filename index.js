@@ -158,15 +158,21 @@ app.post('/api/chat', async (req, res) => {
             
             if (searchContext) {
                 const prompt = ChatPromptTemplate.fromMessages([
-                    ["system", "You are an AI assistant that answers questions based on the following internet search results. Answer as accurately and concisely as possible. Search Results: {context}\n\nQuestion: {question}"]
-                ]);
-                
-                // Format prompt with variables, returns string
-// Create a prompt value object (supports toChatMessages)
+  ["system", "You are an AI assistant that answers questions based on the following internet search results. Answer as accurately and concisely as possible. Search Results: {context}\n\nQuestion: {question}"]
+]);
+
+// Format prompt to ChatPromptValue object (not string)
 const promptValue = await prompt.formatPromptValue({
   context: searchContext,
   question: question
 });
+
+// Optional: debug the messages sent to the model
+console.log(promptValue.toChatMessages());
+
+// Call model.invoke() with the promptValue object
+const result = await model.invoke(promptValue);
+
 
 // Pass the prompt value to model.invoke() which accepts prompt objects
 const result = await model.invoke(promptValue);
