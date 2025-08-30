@@ -88,12 +88,11 @@ app.post('/api/chat', async (req, res) => {
 
             // Check if relevant documents were found
             if (retrievedDocs && retrievedDocs.length > 0) {
-                const prompt = ChatPromptTemplate.fromMessages([
-                    ["system", "Answer the user's question using the context and history."],
-                    ["system", "<chat_history>{chat_history}</chat_history>"],
-                    ["system", "<context>{context}</context>"],
-                    ["human", "{input}"]
-                ]);
+               const prompt = ChatPromptTemplate.fromMessages([
+    ["system", "Answer the user's question using the context and history.\n<chat_history>{chat_history}</chat_history>\n<context>{context}</context>"],
+    ["human", "{input}"]
+]);
+
             
                 const documentChain = await createStuffDocumentsChain({
                     llm: model,
