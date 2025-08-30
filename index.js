@@ -162,13 +162,15 @@ app.post('/api/chat', async (req, res) => {
                 ]);
                 
                 // Format prompt with variables, returns string
-const formattedPrompt = prompt.format({
+// Create a prompt value object (supports toChatMessages)
+const promptValue = await prompt.formatPromptValue({
   context: searchContext,
   question: question
 });
 
-// Pass formatted string to model.call(), which accepts string input
-const result = await model.call(formattedPrompt);
+// Pass the prompt value to model.invoke() which accepts prompt objects
+const result = await model.invoke(promptValue);
+
 
 
 
