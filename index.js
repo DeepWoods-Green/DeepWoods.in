@@ -40,6 +40,7 @@ app.get('/', (req, res) => {
 // Your API endpoint for the chatbot
 app.post('/api/chat', async (req, res) => {
     try {
+      console.log("✅ v2 HANDLER RUNNING - Checking for deployment success.");
         const { question, pdfUrl } = req.body;
 
         if (!question) {
