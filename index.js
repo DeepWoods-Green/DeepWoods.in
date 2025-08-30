@@ -40,7 +40,6 @@ app.get('/', (req, res) => {
 // Your API endpoint for the chatbot
 app.post('/api/chat', async (req, res) => {
     try {
-      console.log("✅ v2 HANDLER RUNNING - Checking for deployment success.");
         const { question, pdfUrl } = req.body;
 
         if (!question) {
@@ -68,13 +67,7 @@ app.post('/api/chat', async (req, res) => {
 
             const retriever = vectorStore.asRetriever();
 
-            let retrievedDocs;
-            try {
-                retrievedDocs = await retriever.getRelevantDocuments(question);
-            } catch (error) {
-                console.error("Error fetching vector documents:", error);
-                return res.status(500).json({ error: "Vector search error" });
-            }
+            const retrievedDocs = await retriever.getRelevantDocuments(question);
 
             // If relevant documents found
             if (retrievedDocs && retrievedDocs.length > 0) {
@@ -83,16 +76,8 @@ app.post('/api/chat', async (req, res) => {
                     ["human", "{input}"]
                 ]);
 
-                const documentChain = await createStuffDocumentsChain({
-                    llm: model,
-                    prompt: prompt
-                });
-
-                const retrievalChain = await createRetrievalChain({
-                    retriever,
-                    combineDocsChain: documentChain,
-                });
-
+                const documentChain = await createStuffDocumentsChain({ llm: model, prompt });
+                const retrievalChain = await createRetrievalChain({ retriever, combineDocsChain: documentChain });
                 const chatHistory = await memory.loadMemoryVariables({});
                 const result = await retrievalChain.invoke({
                     input: question,
@@ -102,12 +87,10 @@ app.post('/api/chat', async (req, res) => {
                 await memory.saveContext({ question: question }, { answer: result.answer });
                 return res.status(200).json({ answer: result.answer });
             } else {
-                // Fallback to web search ONLY if no relevant docs found in PDF
+                // Fallback to web search
                 const searchUrl = `https://www.googleapis.com/customsearch/v1?key=${GOOGLE_SEARCH_API_KEY}&cx=${GOOGLE_SEARCH_ENGINE_ID}&q=${encodeURIComponent(question)}`;
-
                 const searchResponse = await axios.get(searchUrl);
                 const searchResults = searchResponse.data.items || [];
-
                 let searchContext = '';
                 searchResults.forEach(item => {
                     searchContext += `Title: ${item.title}\nLink: ${item.link}\nSnippet: ${item.snippet}\n\n`;
@@ -115,14 +98,15 @@ app.post('/api/chat', async (req, res) => {
 
                 if (searchContext) {
                     const prompt = ChatPromptTemplate.fromMessages([
-                        ["system", "You are an AI assistant that answers questions based on the following internet search results. Answer as accurately and concisely as possible. Search Results: {context}\n\nQuestion: {question}"]
+                        // 👇 FINAL FIX 1a: Changed {question} to {input}
+                        ["system", "You are an AI assistant that answers questions based on the following internet search results. Answer as accurately and concisely as possible. Search Results: {context}\n\nQuestion: {input}"]
                     ]);
 
-                    // ✅ CORRECTED FALLBACK SEARCH
                     const chain = prompt.pipe(model);
                     const result = await chain.invoke({
                         context: searchContext,
-                        question: question
+                        // 👇 FINAL FIX 1b: Changed key from 'question' to 'input'
+                        input: question
                     });
 
                     const warning = "⚠️ Note: I couldn't find an answer in your documents, so the response below was generated based on an internet search.\n\n";
@@ -132,12 +116,10 @@ app.post('/api/chat', async (req, res) => {
                 }
             }
         } else {
-            // General discussion mode (no PDF selected)
+            // General discussion mode
             const searchUrl = `https://www.googleapis.com/customsearch/v1?key=${GOOGLE_SEARCH_API_KEY}&cx=${GOOGLE_SEARCH_ENGINE_ID}&q=${encodeURIComponent(question)}`;
-
             const searchResponse = await axios.get(searchUrl);
             const searchResults = searchResponse.data.items || [];
-
             let searchContext = '';
             searchResults.forEach(item => {
                 searchContext += `Title: ${item.title}\nLink: ${item.link}\nSnippet: ${item.snippet}\n\n`;
@@ -145,14 +127,15 @@ app.post('/api/chat', async (req, res) => {
 
             if (searchContext) {
                 const prompt = ChatPromptTemplate.fromMessages([
-                    ["system", "You are an AI assistant that answers questions based on the following internet search results. Answer as accurately and concisely as possible. Search Results: {context}\n\nQuestion: {question}"]
+                    // 👇 FINAL FIX 2a: Changed {question} to {input}
+                    ["system", "You are an AI assistant that answers questions based on the following internet search results. Answer as accurately and concisely as possible. Search Results: {context}\n\nQuestion: {input}"]
                 ]);
 
-                // ✅ CORRECTED GENERAL DISCUSSION SEARCH
                 const chain = prompt.pipe(model);
                 const result = await chain.invoke({
                     context: searchContext,
-                    question: question
+                    // 👇 FINAL FIX 2b: Changed key from 'question' to 'input'
+                    input: question
                 });
 
                 return res.status(200).json({ answer: result.content });
