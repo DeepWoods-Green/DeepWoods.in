@@ -40,6 +40,7 @@ app.get('/', (req, res) => {
 // Your API endpoint for the chatbot
 app.post('/api/chat', async (req, res) => {
     try {
+       console.log("✅ FINAL VERSION DEPLOYED - v3 with 'input' fix.");
         const { question, pdfUrl } = req.body;
 
         if (!question) {
