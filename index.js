@@ -161,10 +161,11 @@ app.post('/api/chat', async (req, res) => {
                     ["system", "You are an AI assistant that answers questions based on the following internet search results. Answer as accurately and concisely as possible. Search Results: {context}\n\nQuestion: {question}"]
                 ]);
                 
-                const result = await model.invoke(prompt.format({
-                    context: searchContext,
-                    question: question
-                }));
+                const result = await model.invoke(prompt, {
+  context: searchContext,
+  question: question
+});
+
 
 
                 return res.status(200).json({ answer: result.content });
